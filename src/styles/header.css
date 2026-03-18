@@ -1,0 +1,37 @@
+/* ── Header ── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 40px;
+  padding: 0 16px;
+  background: #2d2d2d;
+  border-bottom: 1px solid #3c3c3c;
+  flex-shrink: 0;
+}
+
+.logo {
+  font-weight: 700;
+  font-size: 14px;
+  color: #e0e0e0;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.theme-btn {
+  background: #3c3c3c;
+  color: #ccc;
+  border: 1px solid #555;
+  border-radius: 4px;
+  padding: 4px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.theme-btn:hover {
+  background: #505050;
+}

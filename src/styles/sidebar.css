@@ -1,0 +1,178 @@
+/* ── Sidebar ── */
+.sidebar {
+  width: 220px;
+  background: #252526;
+  border-right: 1px solid #3c3c3c;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px 6px;
+}
+
+.sidebar-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #888;
+}
+
+.sidebar-actions {
+  display: flex;
+  gap: 2px;
+}
+
+.sidebar-action-btn {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 3px;
+  line-height: 1;
+}
+
+.sidebar-action-btn:hover {
+  background: #3c3c3c;
+  color: #e0e0e0;
+}
+
+/* ── Sidebar Empty State ── */
+.sidebar-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  gap: 12px;
+  flex: 1;
+}
+
+.open-folder-btn {
+  background: #0e639c;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 20px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.open-folder-btn:hover {
+  background: #1177bb;
+}
+
+.sidebar-hint {
+  font-size: 12px;
+  color: #666;
+  text-align: center;
+}
+
+/* ── File Tree ── */
+.file-tree {
+  flex: 1;
+}
+
+.tree-item {
+  display: flex;
+  align-items: center;
+  padding: 3px 8px;
+  font-size: 13px;
+  cursor: pointer;
+  gap: 4px;
+  min-height: 24px;
+  user-select: none;
+  position: relative;
+}
+
+.tree-item:hover {
+  background: #2a2d2e;
+}
+
+.tree-item-active {
+  background: #37373d;
+}
+
+.tree-arrow {
+  font-size: 10px;
+  width: 14px;
+  text-align: center;
+  flex-shrink: 0;
+  color: #888;
+}
+
+.tree-file-icon {
+  font-size: 11px;
+  width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.tree-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-item-actions {
+  display: none;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.tree-folder:hover .tree-item-actions {
+  display: flex;
+}
+
+.tree-file:hover .tree-item-actions {
+  display: flex;
+}
+
+.tree-action-btn {
+  color: #888;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 3px;
+  border-radius: 3px;
+  line-height: 1;
+}
+
+.tree-action-btn:hover {
+  background: #3c3c3c;
+  color: #e0e0e0;
+}
+
+.tree-delete-btn:hover {
+  background: #c72e2e;
+  color: #fff;
+}
+
+/* ── Tree Inline Input ── */
+.tree-input-row {
+  cursor: default;
+}
+
+.tree-inline-input {
+  flex: 1;
+  background: #3c3c3c;
+  color: #e0e0e0;
+  border: 1px solid #007acc;
+  border-radius: 2px;
+  padding: 1px 4px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  min-width: 0;
+}
+
+.tree-inline-input::placeholder {
+  color: #666;
+}

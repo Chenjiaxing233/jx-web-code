@@ -1,0 +1,8 @@
+node_modules
+dist
+build
+.husky
+
+# Claude 相关文件
+.claude
+plan.md
