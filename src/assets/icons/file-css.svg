@@ -1,0 +1,7 @@
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M3 1.5H9.2L13 5.3V14.5H3V1.5Z" fill="#E9F7FF" stroke="#90C9E9"/>
+  <path d="M9 1.5V5.5H13" fill="#CDEFFF"/>
+  <path d="M9 1.5V5.5H13" stroke="#90C9E9"/>
+  <rect x="4.2" y="10.2" width="7.6" height="2.3" rx="1.15" fill="#1572B6"/>
+  <text x="8" y="8.6" text-anchor="middle" font-family="Arial, sans-serif" font-size="3.4" font-weight="700" fill="#FFFFFF">CSS</text>
+</svg>

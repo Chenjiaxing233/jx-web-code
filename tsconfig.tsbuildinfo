@@ -1,0 +1,19 @@
+{
+  "root": [
+    "./src/app.tsx",
+    "./src/main.tsx",
+    "./src/vite-env.d.ts",
+    "./src/components/editor.tsx",
+    "./src/components/fileicon.tsx",
+    "./src/components/filetabs.tsx",
+    "./src/components/header.tsx",
+    "./src/components/sidebar.tsx",
+    "./src/components/toast.tsx",
+    "./src/components/a.tsx",
+    "./src/services/fs.ts",
+    "./src/stores/editorstore.tsx",
+    "./src/types/fs-access.d.ts",
+    "./src/types/index.ts"
+  ],
+  "version": "5.6.3"
+}

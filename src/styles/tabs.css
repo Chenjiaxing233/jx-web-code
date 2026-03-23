@@ -21,6 +21,21 @@
   min-width: 0;
 }
 
+.tab-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.tab-file-icon {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
 .tab:hover {
   background: #2a2d2e;
 }
@@ -31,16 +46,46 @@
   border-bottom: 2px solid #007acc;
 }
 
+.tab-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab-dirty {
+  color: #f4bf75;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.tab-actions {
+  display: none;
+  align-items: center;
+  gap: 4px;
+}
+
+.tab:hover .tab-actions {
+  display: flex;
+}
+
+.tab-reload {
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  color: #888;
+  padding: 0 2px;
+}
+
+.tab-reload:hover {
+  color: #4ec9b0;
+}
+
 .tab-close {
   font-size: 16px;
   line-height: 1;
   cursor: pointer;
   color: #888;
-  opacity: 0;
-}
-
-.tab:hover .tab-close {
-  opacity: 1;
+  padding: 0 2px;
 }
 
 .tab-close:hover {

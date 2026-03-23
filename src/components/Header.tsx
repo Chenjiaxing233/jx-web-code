@@ -5,7 +5,7 @@ import {
   useEditorState,
 } from '../stores/editorStore';
 import '../styles/header.css';
-
+console.log('Header component loaded1');
 export default function Header() {
   const { theme } = useEditorState();
   const dispatch = useEditorDispatch();
@@ -29,7 +29,7 @@ export default function Header() {
 
   const handleOpenFile = async () => {
     try {
-      const { name, content } = await openSingleFile();
+      const { name, content, lastModified } = await openSingleFile();
       dispatch({
         type: 'ADD_FILE',
         payload: {
@@ -38,6 +38,7 @@ export default function Header() {
           path: '',
           language: getLanguageFromFileName(name),
           content,
+          lastModified,
         },
       });
     } catch (err) {

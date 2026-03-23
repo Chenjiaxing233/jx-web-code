@@ -1,10 +1,20 @@
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import MonacoEditor, { type BeforeMount } from '@monaco-editor/react';
 import { useEditorState, useEditorDispatch } from '../stores/editorStore';
-import { writeFile, getRootHandle, writeSingleFile } from '../services/fs';
+import {
+  writeFile,
+  getRootHandle,
+  writeSingleFile,
+  readFile,
+  checkFileModified,
+  getFileLastModified,
+  getSingleFileLastModified,
+} from '../services/fs';
 import '../styles/editor.css';
 
 const handleBeforeMount: BeforeMount = (monaco) => {
+  const apostrophe = String.fromCharCode(39);
+
   // TypeScript: enable JSX/TSX, disable semantic errors (no node_modules in browser)
   monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
     target: monaco.languages.typescript.ScriptTarget.Latest,
@@ -51,7 +61,7 @@ const handleBeforeMount: BeforeMount = (monaco) => {
       { open: '[', close: ']' },
       { open: '(', close: ')' },
       { open: '<', close: '>' },
-      { open: "'", close: "'" },
+      { open: apostrophe, close: apostrophe },
       { open: '"', close: '"' },
       { open: '`', close: '`' },
     ],
@@ -60,7 +70,7 @@ const handleBeforeMount: BeforeMount = (monaco) => {
       { open: '[', close: ']' },
       { open: '(', close: ')' },
       { open: '<', close: '>' },
-      { open: "'", close: "'" },
+      { open: apostrophe, close: apostrophe },
       { open: '"', close: '"' },
       { open: '`', close: '`' },
     ],
@@ -75,24 +85,39 @@ const handleBeforeMount: BeforeMount = (monaco) => {
     ignoreCase: true,
     tokenizer: {
       root: [
-        [/(<)(script)(\s|>)/, [
-          { token: 'delimiter.html' },
-          { token: 'tag.html', next: '@scriptTag' },
-          { token: '', next: '@scriptBody' },
-        ]],
-        [/(<)(style)(\s|>)/, [
-          { token: 'delimiter.html' },
-          { token: 'tag.html', next: '@styleTag' },
-          { token: '', next: '@styleBody' },
-        ]],
-        [/(<)(template)(\s|>)/, [
-          { token: 'delimiter.html' },
-          { token: 'tag.html', next: '@templateTag' },
-          { token: '' },
-        ]],
+        [
+          /(<)(script)(\s|>)/,
+          [
+            { token: 'delimiter.html' },
+            { token: 'tag.html', next: '@scriptTag' },
+            { token: '', next: '@scriptBody' },
+          ],
+        ],
+        [
+          /(<)(style)(\s|>)/,
+          [
+            { token: 'delimiter.html' },
+            { token: 'tag.html', next: '@styleTag' },
+            { token: '', next: '@styleBody' },
+          ],
+        ],
+        [
+          /(<)(template)(\s|>)/,
+          [
+            { token: 'delimiter.html' },
+            { token: 'tag.html', next: '@templateTag' },
+            { token: '' },
+          ],
+        ],
         [/<!--/, 'comment.html', '@comment'],
-        [/(<)(\w+)/, [{ token: 'delimiter.html' }, { token: 'tag.html', next: '@tag' }]],
-        [/(<\/)(\w+)/, [{ token: 'delimiter.html' }, { token: 'tag.html', next: '@tag' }]],
+        [
+          /(<)(\w+)/,
+          [{ token: 'delimiter.html' }, { token: 'tag.html', next: '@tag' }],
+        ],
+        [
+          /(<\/)(\w+)/,
+          [{ token: 'delimiter.html' }, { token: 'tag.html', next: '@tag' }],
+        ],
         [/[^<]+/, ''],
       ],
       comment: [
@@ -114,11 +139,14 @@ const handleBeforeMount: BeforeMount = (monaco) => {
         [/[\w-]+/, 'attribute.name.html'],
       ],
       scriptBody: [
-        [/(<\/)(script)(>)/, [
-          { token: 'delimiter.html' },
-          { token: 'tag.html' },
-          { token: 'delimiter.html', next: '@pop' },
-        ]],
+        [
+          /(<\/)(script)(>)/,
+          [
+            { token: 'delimiter.html' },
+            { token: 'tag.html' },
+            { token: 'delimiter.html', next: '@pop' },
+          ],
+        ],
         [/.+?(?=<\/script)/, { token: 'source.ts' }],
         [/./, { token: 'source.ts' }],
       ],
@@ -130,11 +158,14 @@ const handleBeforeMount: BeforeMount = (monaco) => {
         [/[\w-]+/, 'attribute.name.html'],
       ],
       styleBody: [
-        [/(<\/)(style)(>)/, [
-          { token: 'delimiter.html' },
-          { token: 'tag.html' },
-          { token: 'delimiter.html', next: '@pop' },
-        ]],
+        [
+          /(<\/)(style)(>)/,
+          [
+            { token: 'delimiter.html' },
+            { token: 'tag.html' },
+            { token: 'delimiter.html', next: '@pop' },
+          ],
+        ],
         [/.+?(?=<\/style)/, { token: 'source.css' }],
         [/./, { token: 'source.css' }],
       ],
@@ -155,6 +186,57 @@ export default function Editor() {
   const saveTimers = useRef(new Map<string, number>());
 
   const activeFile = files.find((f) => f.id === activeFileId);
+
+  // 检测文件外部修改
+  useEffect(() => {
+    const checkExternalChanges = async () => {
+      if (!activeFile || !activeFile.path || !activeFile.lastModified) return;
+
+      try {
+        const isModified = await checkFileModified(
+          activeFile.path,
+          activeFile.lastModified
+        );
+
+        if (isModified) {
+          const shouldReload = confirm(
+            `文件 "${activeFile.name}" 已被外部修改。是否重新加载？\n\n点击"确定"重新加载文件，点击"取消"保留当前编辑内容。`
+          );
+
+          if (shouldReload) {
+            const { content, lastModified } = await readFile(activeFile.path);
+            dispatch({
+              type: 'RELOAD_FILE',
+              payload: {
+                id: activeFile.id,
+                content,
+                lastModified,
+              },
+            });
+            dispatch({
+              type: 'SHOW_TOAST',
+              payload: {
+                message: '文件已重新加载',
+                type: 'success',
+              },
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to check file modification:', err);
+      }
+    };
+
+    const handleFocus = () => {
+      checkExternalChanges();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [activeFile, dispatch]);
+
   if (!activeFile)
     return <div className="editor-placeholder">No file open</div>;
 
@@ -181,6 +263,27 @@ export default function Editor() {
             } else {
               await writeFile(filePath, content);
             }
+
+            let lastModified: number | undefined;
+            try {
+              lastModified = isSingleFile
+                ? await getSingleFileLastModified(activeFile.name)
+                : await getFileLastModified(filePath);
+            } catch (metadataError) {
+              console.error(
+                'Failed to read saved file metadata:',
+                metadataError
+              );
+            }
+
+            dispatch({
+              type: 'MARK_FILE_SAVED',
+              payload: {
+                id: activeFile.id,
+                content,
+                lastModified,
+              },
+            });
             dispatch({
               type: 'SHOW_TOAST',
               payload: {
@@ -199,7 +302,7 @@ export default function Editor() {
             });
           }
           saveTimers.current.delete(activeFile.id);
-        }, 500),
+        }, 500)
       );
     }
   };

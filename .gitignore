@@ -8,6 +8,16 @@ build
 .env.local
 coverage
 
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+
 # Claude 相关文件
 .claude
 plan.md
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
