@@ -1,8 +1,9 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// Material 图标通过 scripts/sync-material-icons.mjs 同步到 public/assets/material-icons，
-// 由 Vite 原生静态目录托管，dev 与 build 均可访问。
-export default defineConfig({
+// GitHub Pages 项目站点部署在 /<仓库名>/ 路径下，故生产构建需设置 base。
+// 开发模式保持根路径 '/'。
+export default defineConfig(({ command }) => ({
+  base: command === 'build' ? '/jx-web-code/' : '/',
   plugins: [react()],
-});
+}));
