@@ -6,6 +6,10 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6.2-blue)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-18.3.1-blue)](https://reactjs.org/)
 
+**🔗 在线体验：<https://chenjiaxing233.github.io/jx-web-code/>**
+
+> ⚠️ 请使用 **Chrome / Edge** 打开（File System Access API 仅 Chromium 内核浏览器支持）。首次打开编辑器需联网加载 Monaco。
+
 ## ✨ 功能特性
 
 ### 核心功能
@@ -65,6 +69,25 @@ pnpm dev       # 或 npm run dev
 pnpm build     # 或 npm run build
 pnpm preview   # 本地预览构建产物
 ```
+
+## 🚀 部署 (GitHub Pages)
+
+项目通过 GitHub Actions 自动部署到 GitHub Pages，工作流见 [`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml)。
+
+### 自动部署
+
+推送到 `dev` 或 `main` 分支时自动触发构建与部署（也可在 Actions 页手动 `Run workflow`）：
+
+1. 使用 Node 20 + pnpm 执行 `pnpm build`
+2. 将 `dist` 产物上传并发布到 GitHub Pages
+
+### 首次启用
+
+在仓库 **Settings → Pages → Build and deployment → Source** 中选择 **GitHub Actions**（而非 "Deploy from a branch"），随后工作流即可完成部署。
+
+线上地址：<https://chenjiaxing233.github.io/jx-web-code/>
+
+> 生产构建的 `base` 已配置为 `/jx-web-code/`（见 `vite.config.ts`），与仓库名一致；本地开发仍使用根路径 `/`。
 
 ## 使用说明
 
