@@ -1,4 +1,4 @@
-import { useRef, useState, type MouseEvent } from 'react';
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import {
   EditorProvider,
   useEditorState,
@@ -47,6 +47,47 @@ function AppContent() {
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
   };
+
+  // 全局快捷键：关闭当前文件、拦截保存对话框
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const mod = event.ctrlKey || event.metaKey;
+      const key = event.key.toLowerCase();
+
+      // 关闭当前文件：Cmd/Ctrl+W（尽力拦截）或 Alt+W（可靠）
+      if (key === 'w' && (mod || event.altKey)) {
+        if (state.activeFileId) {
+          event.preventDefault();
+          dispatch({ type: 'REMOVE_FILE', payload: state.activeFileId });
+        }
+        return;
+      }
+
+      // 保存：本项目自动保存，拦截浏览器“保存网页”对话框并提示
+      if (mod && key === 's') {
+        event.preventDefault();
+        if (state.activeFileId) {
+          dispatch({
+            type: 'SHOW_TOAST',
+            payload: { message: '文件已自动保存', type: 'success' },
+          });
+        }
+        return;
+      }
+
+      // 重新打开上一个关闭的文件：Cmd/Ctrl+T（尽力拦截）或 Alt+T（可靠）
+      if (key === 't' && (mod || event.altKey)) {
+        if (state.recentlyClosed.length > 0) {
+          event.preventDefault();
+          dispatch({ type: 'REOPEN_LAST_CLOSED' });
+        }
+      }
+    };
+
+    // capture 阶段，先于 Monaco 处理
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [state.activeFileId, state.recentlyClosed, dispatch]);
 
   return (
     <div

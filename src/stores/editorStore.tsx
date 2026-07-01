@@ -15,6 +15,7 @@ const initialState: EditorState = {
   theme: 'vs-dark',
   toast: null,
   createRequest: null,
+  recentlyClosed: [],
 };
 
 function editorReducer(state: EditorState, action: EditorAction): EditorState {
@@ -41,6 +42,15 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
     const nextDirtyFiles = new Set(state.dirtyFiles);
     nextDirtyFiles.delete(action.payload);
 
+    const closedFile = state.files.find((file) => file.id === action.payload);
+    // 记录到“最近关闭”栈（去重后追加，最多保留 20 条）
+    const nextRecentlyClosed = closedFile
+      ? [
+          ...state.recentlyClosed.filter((file) => file.id !== closedFile.id),
+          closedFile,
+        ].slice(-20)
+      : state.recentlyClosed;
+
     const newActiveId =
       remaining.length === 0
         ? ''
@@ -53,6 +63,32 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
       files: remaining,
       dirtyFiles: nextDirtyFiles,
       activeFileId: newActiveId,
+      recentlyClosed: nextRecentlyClosed,
+    };
+  }
+
+  if (action.type === 'REOPEN_LAST_CLOSED') {
+    if (state.recentlyClosed.length === 0) {
+      return state;
+    }
+
+    const last = state.recentlyClosed[state.recentlyClosed.length - 1];
+    const nextRecentlyClosed = state.recentlyClosed.slice(0, -1);
+
+    // 已在打开列表则仅激活
+    if (state.files.some((file) => file.id === last.id)) {
+      return {
+        ...state,
+        activeFileId: last.id,
+        recentlyClosed: nextRecentlyClosed,
+      };
+    }
+
+    return {
+      ...state,
+      files: [...state.files, last],
+      activeFileId: last.id,
+      recentlyClosed: nextRecentlyClosed,
     };
   }
 

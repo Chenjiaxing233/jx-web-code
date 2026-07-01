@@ -37,6 +37,7 @@ export interface EditorState {
   theme: Theme;
   toast: ToastMessage | null;
   createRequest: CreateRequest | null;
+  recentlyClosed: FileItem[];
 }
 
 export type EditorAction =
@@ -56,4 +57,5 @@ export type EditorAction =
   | { type: 'SET_THEME'; payload: Theme }
   | { type: 'SHOW_TOAST'; payload: ToastMessage }
   | { type: 'HIDE_TOAST' }
-  | { type: 'REQUEST_CREATE'; payload: 'file' | 'directory' };
+  | { type: 'REQUEST_CREATE'; payload: 'file' | 'directory' }
+  | { type: 'REOPEN_LAST_CLOSED' };
