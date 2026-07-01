@@ -1,47 +1,34 @@
-import cssIcon from '../assets/fileicons/css.svg';
-import htmlIcon from '../assets/fileicons/html.svg';
-import jsIcon from '../assets/fileicons/js.svg';
-import jsonIcon from '../assets/fileicons/json.svg';
-import newFileIcon from '../assets/fileicons/newFile.svg';
-import newFolderIcon from '../assets/fileicons/newFolder.svg';
-import reactIcon from '../assets/fileicons/react.svg';
-import svgIcon from '../assets/fileicons/svg.svg';
-import tsIcon from '../assets/fileicons/ts.svg';
-import txtIcon from '../assets/fileicons/txt.svg';
-import unknownIcon from '../assets/fileicons/unknown.svg';
-import vueIcon from '../assets/fileicons/vue.svg';
-
-const fileIconMap: Record<string, string> = {
-  css: cssIcon,
-  htm: htmlIcon,
-  html: htmlIcon,
-  js: jsIcon,
-  json: jsonIcon,
-  jsx: reactIcon,
-  md: txtIcon,
-  svg: svgIcon,
-  ts: tsIcon,
-  tsx: reactIcon,
-  txt: txtIcon,
-  vue: vueIcon,
-};
+import { getIconForFilePath } from 'vscode-material-icons';
 
 /**
- * 根据文件名选择 fileicons 目录中的 SVG 图标。
+ * 通过 Vite 的 import.meta.glob 把 Material 图标 SVG 作为资源 URL 全量引入，
+ * 由 Vite 资源管线处理（dev 直出、build 带 hash），无需复制到 public。
  */
-function getFileIconSource(name: string): string {
-  const extension = name.split('.').pop()?.toLowerCase();
+const modules = import.meta.glob(
+  '/node_modules/vscode-material-icons/generated/icons/*.svg',
+  { eager: true, query: '?url', import: 'default' }
+) as Record<string, string>;
 
-  if (!extension) {
-    return newFileIcon;
-  }
-
-  return fileIconMap[extension] ?? unknownIcon;
+/** 图标名 -> 资源 URL */
+const iconUrlByName: Record<string, string> = {};
+for (const path in modules) {
+  const name = path.split('/').pop()!.replace('.svg', '');
+  iconUrlByName[name] = modules[path];
 }
 
+/** 取图标 URL，未命中回退到通用 file 图标 */
+const resolveIconUrl = (iconName: string): string =>
+  iconUrlByName[iconName] ?? iconUrlByName.file;
+
+/**
+ * 使用 VSCode Material Icon Theme 图标渲染文件/文件夹图标。
+ * - 文件：根据文件名推断对应图标
+ * - 文件夹：folder / folder-open
+ */
 export function FileIcon({
   name,
   type,
+  isOpen,
   className,
 }: {
   name?: string;
@@ -49,15 +36,19 @@ export function FileIcon({
   isOpen?: boolean;
   className?: string;
 }) {
-  const src =
-    type === 'directory' ? newFolderIcon : getFileIconSource(name ?? '');
+  const iconName =
+    type === 'directory'
+      ? isOpen
+        ? 'folder-open'
+        : 'folder'
+      : getIconForFilePath(name ?? '');
 
   return (
-    <span
-      className={`${className ?? ''} file-icon-frame file-icon-frame--${type}`}
+    <img
+      className={`${className ?? ''} file-icon-image`}
+      src={resolveIconUrl(iconName)}
+      alt=""
       aria-hidden="true"
-    >
-      <img className="file-icon-image" src={src} alt="" />
-    </span>
+    />
   );
 }

@@ -23,6 +23,12 @@ export interface ToastMessage {
   type: 'success' | 'error' | 'warning' | 'info';
 }
 
+/** 新建请求信号：token 每次递增以触发 Sidebar 响应 */
+export interface CreateRequest {
+  type: 'file' | 'directory';
+  token: number;
+}
+
 export interface EditorState {
   tree: FileTreeNode[];
   files: FileItem[];
@@ -30,6 +36,7 @@ export interface EditorState {
   activeFileId: string;
   theme: Theme;
   toast: ToastMessage | null;
+  createRequest: CreateRequest | null;
 }
 
 export type EditorAction =
@@ -48,4 +55,5 @@ export type EditorAction =
     }
   | { type: 'SET_THEME'; payload: Theme }
   | { type: 'SHOW_TOAST'; payload: ToastMessage }
-  | { type: 'HIDE_TOAST' };
+  | { type: 'HIDE_TOAST' }
+  | { type: 'REQUEST_CREATE'; payload: 'file' | 'directory' };

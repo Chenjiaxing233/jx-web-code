@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import {
   createFile,
   createFolder,
@@ -16,6 +16,8 @@ import {
   useEditorState,
 } from '../stores/editorStore';
 import { FileIcon } from './FileIcon';
+import { NewFileIcon, NewFolderIcon, TrashIcon, ChevronRightIcon } from './icons';
+import { ConfirmDialog } from './ConfirmDialog';
 import type { FileTreeNode } from '../types';
 import '../styles/sidebar.css';
 
@@ -222,6 +224,7 @@ function TreeNodeItem({
   onCreateSubmit,
   onCreateCancel,
   onDelete,
+  onContextMenu,
 }: {
   node: FileTreeNode;
   depth: number;
@@ -234,6 +237,10 @@ function TreeNodeItem({
   onCreateSubmit: (name: string) => Promise<void> | void;
   onCreateCancel: () => void;
   onDelete: (node: FileTreeNode) => Promise<void> | void;
+  onContextMenu: (
+    event: MouseEvent,
+    node: FileTreeNode | null
+  ) => void;
 }) {
   if (node.type === 'directory') {
     const isKnownEmptyDirectory =
@@ -252,9 +259,15 @@ function TreeNodeItem({
               void toggleExpand(node);
             }
           }}
+          onContextMenu={(event) => onContextMenu(event, node)}
         >
           <span className="tree-arrow">
-            {canExpand ? (isExpanded ? 'v' : '>') : ''}
+            {canExpand && (
+              <ChevronRightIcon
+                size={14}
+                className={`tree-chevron ${isExpanded ? 'tree-chevron-open' : ''}`}
+              />
+            )}
           </span>
           <FileIcon
             className="tree-file-icon"
@@ -272,7 +285,7 @@ function TreeNodeItem({
                 onStartCreating('file', node.path);
               }}
             >
-              +
+              <NewFileIcon size={14} />
             </span>
             <span
               className="tree-action-btn"
@@ -282,7 +295,7 @@ function TreeNodeItem({
                 onStartCreating('directory', node.path);
               }}
             >
-              o
+              <NewFolderIcon size={14} />
             </span>
             <span
               className="tree-action-btn tree-delete-btn"
@@ -292,7 +305,7 @@ function TreeNodeItem({
                 void onDelete(node);
               }}
             >
-              x
+              <TrashIcon size={14} />
             </span>
           </div>
         </div>
@@ -329,6 +342,7 @@ function TreeNodeItem({
                   onCreateSubmit={onCreateSubmit}
                   onCreateCancel={onCreateCancel}
                   onDelete={onDelete}
+                  onContextMenu={onContextMenu}
                 />
               ))}
           </>
@@ -344,6 +358,7 @@ function TreeNodeItem({
       }`}
       style={{ paddingLeft: `${depth * 16 + 8}px` }}
       onClick={() => void onOpenFile(node)}
+      onContextMenu={(event) => onContextMenu(event, node)}
     >
       <FileIcon className="tree-file-icon" name={node.name} type="file" />
       <span className="tree-name">{node.name}</span>
@@ -356,15 +371,15 @@ function TreeNodeItem({
             void onDelete(node);
           }}
         >
-          x
+          <TrashIcon size={14} />
         </span>
       </div>
     </div>
   );
 }
 
-export default function Sidebar() {
-  const { tree, files, activeFileId } = useEditorState();
+export default function Sidebar({ width }: { width: number }) {
+  const { tree, files, activeFileId, createRequest } = useEditorState();
   const dispatch = useEditorDispatch();
   const treeRef = useRef<FileTreeNode[]>(tree);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -373,6 +388,13 @@ export default function Sidebar() {
     parentPath: string;
     type: 'file' | 'directory';
   } | null>(null);
+  const [menu, setMenu] = useState<{
+    x: number;
+    y: number;
+    node: FileTreeNode | null;
+  } | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<FileTreeNode | null>(null);
+  const lastCreateToken = useRef(0);
 
   const commitTree = (nextTree: FileTreeNode[]) => {
     treeRef.current = nextTree;
@@ -559,16 +581,11 @@ export default function Sidebar() {
     }
   };
 
-  const handleDelete = async (node: FileTreeNode) => {
-    const confirmMessage =
-      node.type === 'directory'
-        ? `Delete folder "${node.name}" and all its contents?`
-        : `Delete file "${node.name}"?`;
+  const handleDelete = (node: FileTreeNode) => {
+    setPendingDelete(node);
+  };
 
-    if (!confirm(confirmMessage)) {
-      return;
-    }
-
+  const performDelete = async (node: FileTreeNode) => {
     try {
       await deleteFile(node.path);
 
@@ -627,6 +644,64 @@ export default function Sidebar() {
     nextExpanded.add(parentPath);
     commitExpanded(nextExpanded);
   };
+
+  // 响应来自 Header 的新建请求（token 变化时在根目录发起新建）
+  useEffect(() => {
+    if (!createRequest || createRequest.token === lastCreateToken.current) {
+      return;
+    }
+
+    lastCreateToken.current = createRequest.token;
+    startCreating(createRequest.type, '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createRequest]);
+
+  // 计算某节点对应的“新建目标父路径”
+  const parentPathOf = (node: FileTreeNode | null): string => {
+    if (!node) {
+      return '';
+    }
+
+    if (node.type === 'directory') {
+      return node.path;
+    }
+
+    return node.path.includes('/')
+      ? node.path.slice(0, node.path.lastIndexOf('/'))
+      : '';
+  };
+
+  const openContextMenu = (
+    event: MouseEvent,
+    node: FileTreeNode | null
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setMenu({ x: event.clientX, y: event.clientY, node });
+  };
+
+  // 打开菜单后，任意点击/滚动/窗口变化/Esc 均关闭
+  useEffect(() => {
+    if (!menu) {
+      return;
+    }
+
+    const close = () => setMenu(null);
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMenu(null);
+      }
+    };
+
+    window.addEventListener('click', close);
+    window.addEventListener('resize', close);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('click', close);
+      window.removeEventListener('resize', close);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [menu]);
 
   const handleOpenFolder = async () => {
     try {
@@ -694,7 +769,7 @@ export default function Sidebar() {
   const hasFolder = getRootHandle() !== null || tree.length > 0;
 
   return (
-    <aside className="sidebar">
+    <aside className="sidebar" style={{ width }}>
       <div className="sidebar-header">
         <span className="sidebar-title">Explorer</span>
         {hasFolder && (
@@ -704,14 +779,14 @@ export default function Sidebar() {
               title="New File"
               onClick={() => startCreating('file')}
             >
-              +
+              <NewFileIcon size={15} />
             </button>
             <button
               className="sidebar-action-btn"
               title="New Folder"
               onClick={() => startCreating('directory')}
             >
-              o
+              <NewFolderIcon size={15} />
             </button>
           </div>
         )}
@@ -727,7 +802,15 @@ export default function Sidebar() {
           <p className="sidebar-hint">Open a file or folder to start editing</p>
         </div>
       ) : (
-        <div className="file-tree">
+        <div
+          className="file-tree"
+          onContextMenu={(event) => {
+            // 仅当右键点击空白区域时按根目录处理
+            if (event.target === event.currentTarget) {
+              openContextMenu(event, null);
+            }
+          }}
+        >
           {creating && creating.parentPath === '' && (
             <InlineInput
               depth={0}
@@ -750,6 +833,7 @@ export default function Sidebar() {
               onCreateSubmit={handleCreate}
               onCreateCancel={() => setCreating(null)}
               onDelete={handleDelete}
+              onContextMenu={openContextMenu}
             />
           ))}
           {tree.length === 0 && !creating && (
@@ -758,6 +842,73 @@ export default function Sidebar() {
             </p>
           )}
         </div>
+      )}
+      {menu && (
+        <div
+          className="context-menu"
+          style={{ left: menu.x, top: menu.y }}
+          onClick={(event) => event.stopPropagation()}
+          onContextMenu={(event) => event.preventDefault()}
+        >
+          <button
+            className="context-menu-item"
+            onClick={() => {
+              startCreating('file', parentPathOf(menu.node));
+              setMenu(null);
+            }}
+          >
+            <NewFileIcon size={15} />
+            <span>New File</span>
+          </button>
+          <button
+            className="context-menu-item"
+            onClick={() => {
+              startCreating('directory', parentPathOf(menu.node));
+              setMenu(null);
+            }}
+          >
+            <NewFolderIcon size={15} />
+            <span>New Folder</span>
+          </button>
+          {menu.node && (
+            <>
+              <div className="context-menu-divider" />
+              <button
+                className="context-menu-item context-menu-item-danger"
+                onClick={() => {
+                  const target = menu.node;
+                  setMenu(null);
+                  if (target) {
+                    void handleDelete(target);
+                  }
+                }}
+              >
+                <TrashIcon size={15} />
+                <span>Delete</span>
+              </button>
+            </>
+          )}
+        </div>
+      )}
+      {pendingDelete && (
+        <ConfirmDialog
+          danger
+          title={
+            pendingDelete.type === 'directory' ? 'Delete Folder' : 'Delete File'
+          }
+          message={
+            pendingDelete.type === 'directory'
+              ? `Delete folder "${pendingDelete.name}" and all its contents? This cannot be undone.`
+              : `Delete file "${pendingDelete.name}"? This cannot be undone.`
+          }
+          confirmText="Delete"
+          onConfirm={() => {
+            const target = pendingDelete;
+            setPendingDelete(null);
+            void performDelete(target);
+          }}
+          onCancel={() => setPendingDelete(null)}
+        />
       )}
     </aside>
   );

@@ -14,6 +14,7 @@ const initialState: EditorState = {
   activeFileId: '',
   theme: 'vs-dark',
   toast: null,
+  createRequest: null,
 };
 
 function editorReducer(state: EditorState, action: EditorAction): EditorState {
@@ -127,6 +128,16 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
 
   if (action.type === 'HIDE_TOAST') {
     return { ...state, toast: null };
+  }
+
+  if (action.type === 'REQUEST_CREATE') {
+    return {
+      ...state,
+      createRequest: {
+        type: action.payload,
+        token: (state.createRequest?.token ?? 0) + 1,
+      },
+    };
   }
 
   return state;

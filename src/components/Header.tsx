@@ -1,14 +1,17 @@
-import { openDirectory, openSingleFile, refreshTree } from '../services/fs';
+import { openDirectory, openSingleFile, refreshTree, getRootHandle } from '../services/fs';
 import {
   getLanguageFromFileName,
   useEditorDispatch,
   useEditorState,
 } from '../stores/editorStore';
+import { NewFileIcon, NewFolderIcon } from './icons';
 import '../styles/header.css';
-console.log('Header component loaded1');
+
 export default function Header() {
-  const { theme } = useEditorState();
+  const { theme, tree } = useEditorState();
   const dispatch = useEditorDispatch();
+
+  const hasFolder = getRootHandle() !== null || tree.length > 0;
 
   const toggleTheme = () => {
     dispatch({
@@ -52,6 +55,27 @@ export default function Header() {
         <span className="logo">Code Editor</span>
       </div>
       <div className="header-right">
+        {hasFolder && (
+          <>
+            <button
+              className="icon-btn"
+              title="New File"
+              onClick={() => dispatch({ type: 'REQUEST_CREATE', payload: 'file' })}
+            >
+              <NewFileIcon />
+            </button>
+            <button
+              className="icon-btn"
+              title="New Folder"
+              onClick={() =>
+                dispatch({ type: 'REQUEST_CREATE', payload: 'directory' })
+              }
+            >
+              <NewFolderIcon />
+            </button>
+            <span className="header-divider" />
+          </>
+        )}
         <button className="theme-btn" onClick={handleOpenFile}>
           Open File
         </button>

@@ -2,6 +2,7 @@ import type { MouseEvent } from 'react';
 import { readFile } from '../services/fs';
 import { useEditorDispatch, useEditorState } from '../stores/editorStore';
 import { FileIcon } from './FileIcon';
+import { CloseIcon, RefreshIcon } from './icons';
 import '../styles/tabs.css';
 
 export default function FileTabs() {
@@ -68,27 +69,27 @@ export default function FileTabs() {
                 type="file"
               />
               <span className="tab-name">{file.name}</span>
-              {isDirty && <span className="tab-dirty">*</span>}
+              {isDirty && <span className="tab-dirty" title="未保存" />}
             </div>
             <div className="tab-actions">
               {file.path && (
                 <span
-                  className="tab-reload"
+                  className="tab-action-btn tab-reload"
                   title="Reload file"
                   onClick={(event) => void handleReloadFile(event, file.id)}
                 >
-                  R
+                  <RefreshIcon size={13} />
                 </span>
               )}
               <span
-                className="tab-close"
+                className="tab-action-btn tab-close"
                 title="Close file"
                 onClick={(event) => {
                   event.stopPropagation();
                   dispatch({ type: 'REMOVE_FILE', payload: file.id });
                 }}
               >
-                x
+                <CloseIcon size={14} />
               </span>
             </div>
           </div>

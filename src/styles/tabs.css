@@ -2,9 +2,10 @@
 .file-tabs {
   display: flex;
   height: 35px;
-  background: #2d2d2d;
-  border-bottom: 1px solid #3c3c3c;
+  background: var(--bg-tabs);
+  border-bottom: 1px solid var(--border);
   overflow-x: auto;
+  overflow-y: hidden;
   flex-shrink: 0;
 }
 
@@ -14,11 +15,12 @@
   padding: 0 12px;
   font-size: 13px;
   cursor: pointer;
-  border-right: 1px solid #3c3c3c;
+  border-right: 1px solid var(--border);
   gap: 8px;
   white-space: nowrap;
-  color: #888;
+  color: var(--text-muted);
   min-width: 0;
+  position: relative;
 }
 
 .tab-label {
@@ -37,13 +39,22 @@
 }
 
 .tab:hover {
-  background: #2a2d2e;
+  background: var(--hover);
 }
 
 .tab-active {
-  background: #1e1e1e;
-  color: #e0e0e0;
-  border-bottom: 2px solid #007acc;
+  background: var(--bg-app);
+  color: var(--text-strong);
+}
+
+.tab-active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--accent);
 }
 
 .tab-name {
@@ -53,41 +64,44 @@
 }
 
 .tab-dirty {
-  color: #f4bf75;
-  font-weight: 700;
-  line-height: 1;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f4bf75;
+  flex-shrink: 0;
 }
 
 .tab-actions {
   display: none;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
 }
 
 .tab:hover .tab-actions {
   display: flex;
 }
 
-.tab-reload {
-  font-size: 16px;
-  line-height: 1;
+/* 有未保存改动时常驻显示操作区，脏点会让位给关闭按钮 */
+.tab-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
   cursor: pointer;
-  color: #888;
-  padding: 0 2px;
+  color: var(--text-muted);
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease;
 }
 
 .tab-reload:hover {
   color: #4ec9b0;
-}
-
-.tab-close {
-  font-size: 16px;
-  line-height: 1;
-  cursor: pointer;
-  color: #888;
-  padding: 0 2px;
+  background: var(--hover);
 }
 
 .tab-close:hover {
-  color: #e06c75;
+  color: #fff;
+  background: var(--danger);
 }

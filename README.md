@@ -217,6 +217,21 @@ pnpm run format
 - [ ] 实现文件搜索功能
 - [ ] 优化大文件夹加载性能
 - [ ] 添加键盘快捷键
+- [ ] 集成 Volar，提供完整的 Vue 语言智能
+
+### Vue 语言支持规划（方案 2：Volar 集成）
+
+当前 `.vue` 文件的语法高亮由 [Shiki](https://shiki.style/) 提供（VS Code 同款 TextMate 高亮，覆盖 `<template>` / `<script>` / `<style>` 三段），能满足阅读和编辑需求，但**不包含类型检查与智能补全**。
+
+后续待服务端文件加载能力就绪后，计划引入 **[Volar](https://github.com/vuejs/language-tools)（Vue 官方 language server）** 提供完整的 Vue 语言智能：
+
+- **能力**：SFC 内 TypeScript 类型检查、自动补全、悬停提示（hover）、跳转定义、诊断
+- **核心依赖**：
+  - [`@volar/monaco`](https://www.npmjs.com/package/@volar/monaco) — Volar 官方的 Monaco 集成（提供 LSP 能力，**不含高亮**）
+  - `@vue/language-service` / `typescript` — 运行在 Web Worker 中的语言服务
+- **与现有方案的关系**：Volar 只负责“语言智能”，语法高亮仍由 Shiki 承担，两者**互补叠加、不冲突**
+- **落地前提**：Volar 需要在 Worker 中加载 TypeScript 与项目依赖类型，因此依赖服务端提供文件/依赖的读取能力（当前纯前端 File System Access 方案下类型信息不完整），故安排在服务端加载文件实现之后
+- **代价**：需引入 Web Worker、加载 TS/Volar，体积与初始化开销较大
 
 ## 浏览器兼容性
 

@@ -1,6 +1,8 @@
-import { useRef, useEffect } from 'react';
-import MonacoEditor, { type BeforeMount } from '@monaco-editor/react';
+import { useRef, useEffect, useState } from 'react';
+import MonacoEditor, { loader, type BeforeMount } from '@monaco-editor/react';
+import { shikiToMonaco } from '@shikijs/monaco';
 import { useEditorState, useEditorDispatch } from '../stores/editorStore';
+import { getHighlighter, SHIKI_THEMES } from '../services/highlighter';
 import {
   writeFile,
   getRootHandle,
@@ -13,8 +15,6 @@ import {
 import '../styles/editor.css';
 
 const handleBeforeMount: BeforeMount = (monaco) => {
-  const apostrophe = String.fromCharCode(39);
-
   // TypeScript: enable JSX/TSX, disable semantic errors (no node_modules in browser)
   monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
     target: monaco.languages.typescript.ScriptTarget.Latest,
@@ -47,143 +47,42 @@ const handleBeforeMount: BeforeMount = (monaco) => {
     noSyntaxValidation: false,
   });
 
-  // Register Vue as a language (HTML-based highlighting)
-  monaco.languages.register({ id: 'vue', extensions: ['.vue'] });
-  monaco.languages.setLanguageConfiguration('vue', {
-    brackets: [
-      ['<', '>'],
-      ['{', '}'],
-      ['(', ')'],
-      ['[', ']'],
-    ],
-    autoClosingPairs: [
-      { open: '{', close: '}' },
-      { open: '[', close: ']' },
-      { open: '(', close: ')' },
-      { open: '<', close: '>' },
-      { open: apostrophe, close: apostrophe },
-      { open: '"', close: '"' },
-      { open: '`', close: '`' },
-    ],
-    surroundingPairs: [
-      { open: '{', close: '}' },
-      { open: '[', close: ']' },
-      { open: '(', close: ')' },
-      { open: '<', close: '>' },
-      { open: apostrophe, close: apostrophe },
-      { open: '"', close: '"' },
-      { open: '`', close: '`' },
-    ],
-    comments: {
-      blockComment: ['<!--', '-->'],
-    },
-  });
-  // Use HTML tokenizer for Vue SFCs (<template>, <script>, <style>)
-  monaco.languages.setMonarchTokensProvider('vue', {
-    defaultToken: '',
-    tokenPostfix: '.vue',
-    ignoreCase: true,
-    tokenizer: {
-      root: [
-        [
-          /(<)(script)(\s|>)/,
-          [
-            { token: 'delimiter.html' },
-            { token: 'tag.html', next: '@scriptTag' },
-            { token: '', next: '@scriptBody' },
-          ],
-        ],
-        [
-          /(<)(style)(\s|>)/,
-          [
-            { token: 'delimiter.html' },
-            { token: 'tag.html', next: '@styleTag' },
-            { token: '', next: '@styleBody' },
-          ],
-        ],
-        [
-          /(<)(template)(\s|>)/,
-          [
-            { token: 'delimiter.html' },
-            { token: 'tag.html', next: '@templateTag' },
-            { token: '' },
-          ],
-        ],
-        [/<!--/, 'comment.html', '@comment'],
-        [
-          /(<)(\w+)/,
-          [{ token: 'delimiter.html' }, { token: 'tag.html', next: '@tag' }],
-        ],
-        [
-          /(<\/)(\w+)/,
-          [{ token: 'delimiter.html' }, { token: 'tag.html', next: '@tag' }],
-        ],
-        [/[^<]+/, ''],
-      ],
-      comment: [
-        [/-->/, 'comment.html', '@pop'],
-        [/./, 'comment.html'],
-      ],
-      tag: [
-        [/\/?>/, { token: 'delimiter.html', next: '@pop' }],
-        [/"[^"]*"/, 'attribute.value.html'],
-        [/'[^']*'/, 'attribute.value.html'],
-        [/=/, 'delimiter.html'],
-        [/[\w-]+/, 'attribute.name.html'],
-      ],
-      scriptTag: [
-        [/>/, { token: 'delimiter.html', next: '@scriptBody' }],
-        [/"[^"]*"/, 'attribute.value.html'],
-        [/'[^']*'/, 'attribute.value.html'],
-        [/=/, 'delimiter.html'],
-        [/[\w-]+/, 'attribute.name.html'],
-      ],
-      scriptBody: [
-        [
-          /(<\/)(script)(>)/,
-          [
-            { token: 'delimiter.html' },
-            { token: 'tag.html' },
-            { token: 'delimiter.html', next: '@pop' },
-          ],
-        ],
-        [/.+?(?=<\/script)/, { token: 'source.ts' }],
-        [/./, { token: 'source.ts' }],
-      ],
-      styleTag: [
-        [/>/, { token: 'delimiter.html', next: '@styleBody' }],
-        [/"[^"]*"/, 'attribute.value.html'],
-        [/'[^']*'/, 'attribute.value.html'],
-        [/=/, 'delimiter.html'],
-        [/[\w-]+/, 'attribute.name.html'],
-      ],
-      styleBody: [
-        [
-          /(<\/)(style)(>)/,
-          [
-            { token: 'delimiter.html' },
-            { token: 'tag.html' },
-            { token: 'delimiter.html', next: '@pop' },
-          ],
-        ],
-        [/.+?(?=<\/style)/, { token: 'source.css' }],
-        [/./, { token: 'source.css' }],
-      ],
-      templateTag: [
-        [/>/, { token: 'delimiter.html', next: '@pop' }],
-        [/"[^"]*"/, 'attribute.value.html'],
-        [/'[^']*'/, 'attribute.value.html'],
-        [/=/, 'delimiter.html'],
-        [/[\w-]+/, 'attribute.name.html'],
-      ],
-    },
-  } as any);
+  // .vue 作为独立语言 id 注册，其 TextMate 高亮由 Shiki 提供（见下方 useEffect）。
+  monaco.languages.register({ id: 'vue' });
 };
 
 export default function Editor() {
   const { files, activeFileId, theme } = useEditorState();
   const dispatch = useEditorDispatch();
   const saveTimers = useRef(new Map<string, number>());
+  const [shikiReady, setShikiReady] = useState(false);
+
+  // 初始化 Shiki 高亮引擎并接入 Monaco（VS Code 级 TextMate 高亮，含 Vue SFC）
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [highlighter, monaco] = await Promise.all([
+          getHighlighter(),
+          loader.init(),
+        ]);
+        if (cancelled) return;
+        if (!monaco.languages.getLanguages().some((l) => l.id === 'vue')) {
+          monaco.languages.register({ id: 'vue' });
+        }
+        shikiToMonaco(highlighter, monaco);
+        setShikiReady(true);
+      } catch (err) {
+        console.error('Failed to init Shiki highlighter:', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Shiki 就绪后使用其主题（dark-plus/light-plus），否则回退 Monaco 内置主题
+  const editorTheme = shikiReady ? SHIKI_THEMES[theme] : theme;
 
   const activeFile = files.find((f) => f.id === activeFileId);
 
@@ -314,7 +213,7 @@ export default function Editor() {
         height="100%"
         path={activeFile.path || activeFile.name}
         language={activeFile.language}
-        theme={theme}
+        theme={editorTheme}
         value={activeFile.content}
         onChange={handleChange}
         beforeMount={handleBeforeMount}
