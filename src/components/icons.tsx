@@ -45,3 +45,8 @@ export const RefreshIcon = (props: IconProps) => (
 export const ChevronRightIcon = (props: IconProps) => (
   <Codicon name="chevron-right" {...props} />
 );
+
+/** GitHub */
+export const GithubIcon = (props: IconProps) => (
+  <Codicon name="github" {...props} />
+);

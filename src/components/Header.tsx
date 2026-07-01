@@ -1,10 +1,18 @@
-import { openDirectory, openSingleFile, refreshTree, getRootHandle } from '../services/fs';
+import {
+  openDirectory,
+  openSingleFile,
+  refreshTree,
+  getRootHandle,
+} from '../services/fs';
 import {
   getLanguageFromFileName,
   useEditorDispatch,
   useEditorState,
 } from '../stores/editorStore';
-import { NewFileIcon, NewFolderIcon } from './icons';
+import { GithubIcon, NewFileIcon, NewFolderIcon } from './icons';
+
+/** GitHub 项目地址，点击跳转以便 star */
+const GITHUB_REPO_URL = 'https://github.com/Chenjiaxing233/jx-web-code';
 import '../styles/header.css';
 
 export default function Header() {
@@ -60,7 +68,9 @@ export default function Header() {
             <button
               className="icon-btn"
               title="New File"
-              onClick={() => dispatch({ type: 'REQUEST_CREATE', payload: 'file' })}
+              onClick={() =>
+                dispatch({ type: 'REQUEST_CREATE', payload: 'file' })
+              }
             >
               <NewFileIcon />
             </button>
@@ -85,6 +95,15 @@ export default function Header() {
         <button className="theme-btn" onClick={toggleTheme}>
           {theme === 'vs-dark' ? '☀ Light' : '☾ Dark'}
         </button>
+        <a
+          className="icon-btn"
+          href={GITHUB_REPO_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Star on GitHub"
+        >
+          <GithubIcon />
+        </a>
       </div>
     </header>
   );
