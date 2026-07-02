@@ -16,6 +16,7 @@ const initialState: EditorState = {
   toast: null,
   createRequest: null,
   recentlyClosed: [],
+  reveal: null,
 };
 
 function editorReducer(state: EditorState, action: EditorAction): EditorState {
@@ -172,6 +173,21 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
       createRequest: {
         type: action.payload,
         token: (state.createRequest?.token ?? 0) + 1,
+      },
+    };
+  }
+
+  if (action.type === 'REVEAL_LOCATION') {
+    // 同时激活目标文件，并递增 token 保证重复点击同一位置也能触发定位
+    return {
+      ...state,
+      activeFileId: action.payload.fileId,
+      reveal: {
+        fileId: action.payload.fileId,
+        line: action.payload.line,
+        column: action.payload.column,
+        endColumn: action.payload.endColumn,
+        token: (state.reveal?.token ?? 0) + 1,
       },
     };
   }

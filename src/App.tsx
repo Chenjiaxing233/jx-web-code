@@ -6,6 +6,8 @@ import {
 } from './stores/editorStore';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
+import SearchPanel from './components/SearchPanel';
+import ActivityBar, { type SideView } from './components/ActivityBar';
 import FileTabs from './components/FileTabs';
 import Editor from './components/Editor';
 import { Toast } from './components/Toast';
@@ -18,6 +20,7 @@ function AppContent() {
   const state = useEditorState();
   const dispatch = useEditorDispatch();
   const [sidebarWidth, setSidebarWidth] = useState(220);
+  const [sideView, setSideView] = useState<SideView>('explorer');
   const draggingRef = useRef(false);
 
   /** 开始拖动分隔条，实时调整侧边栏宽度 */
@@ -29,9 +32,10 @@ function AppContent() {
 
     const onMove = (ev: globalThis.MouseEvent) => {
       if (!draggingRef.current) return;
+      // 减去活动栏宽度（48px），得到侧边栏实际宽度
       const next = Math.min(
         MAX_SIDEBAR_WIDTH,
-        Math.max(MIN_SIDEBAR_WIDTH, ev.clientX)
+        Math.max(MIN_SIDEBAR_WIDTH, ev.clientX - 48)
       );
       setSidebarWidth(next);
     };
@@ -96,7 +100,12 @@ function AppContent() {
     >
       <Header />
       <div className="main-area">
-        <Sidebar width={sidebarWidth} />
+        <ActivityBar active={sideView} onChange={setSideView} />
+        {sideView === 'explorer' ? (
+          <Sidebar width={sidebarWidth} />
+        ) : (
+          <SearchPanel width={sidebarWidth} />
+        )}
         <div
           className="sidebar-resizer"
           onMouseDown={startResize}

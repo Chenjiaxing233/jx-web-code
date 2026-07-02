@@ -1,5 +1,9 @@
 import { useRef, useEffect, useState } from 'react';
-import MonacoEditor, { loader, type BeforeMount } from '@monaco-editor/react';
+import MonacoEditor, {
+  loader,
+  type BeforeMount,
+  type OnMount,
+} from '@monaco-editor/react';
 import { shikiToMonaco } from '@shikijs/monaco';
 import { useEditorState, useEditorDispatch } from '../stores/editorStore';
 import { getHighlighter, SHIKI_THEMES } from '../services/highlighter';
@@ -52,10 +56,12 @@ const handleBeforeMount: BeforeMount = (monaco) => {
 };
 
 export default function Editor() {
-  const { files, activeFileId, theme } = useEditorState();
+  const { files, activeFileId, theme, reveal } = useEditorState();
   const dispatch = useEditorDispatch();
   const saveTimers = useRef(new Map<string, number>());
   const [shikiReady, setShikiReady] = useState(false);
+  // Monaco 编辑器实例，用于搜索结果跳转定位
+  const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
 
   // 初始化 Shiki 高亮引擎并接入 Monaco（VS Code 级 TextMate 高亮，含 Vue SFC）
   useEffect(() => {
@@ -85,6 +91,33 @@ export default function Editor() {
   const editorTheme = shikiReady ? SHIKI_THEMES[theme] : theme;
 
   const activeFile = files.find((f) => f.id === activeFileId);
+
+  /** 将编辑器定位到指定行列并选中命中文本 */
+  const applyReveal = () => {
+    const ed = editorRef.current;
+    if (!ed || !reveal || reveal.fileId !== activeFileId) return;
+    ed.revealLineInCenter(reveal.line);
+    ed.setSelection({
+      startLineNumber: reveal.line,
+      startColumn: reveal.column,
+      endLineNumber: reveal.line,
+      endColumn: reveal.endColumn,
+    });
+    ed.setPosition({ lineNumber: reveal.line, column: reveal.column });
+    ed.focus();
+  };
+
+  // 文件已打开的情况下，reveal 变化时直接定位
+  useEffect(() => {
+    applyReveal();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reveal?.token, activeFileId]);
+
+  const handleMount: OnMount = (editor) => {
+    editorRef.current = editor;
+    // 文件刚被打开而挂载时，若存在待定位请求则立即执行
+    applyReveal();
+  };
 
   // 检测文件外部修改
   useEffect(() => {
@@ -216,6 +249,7 @@ export default function Editor() {
         theme={editorTheme}
         value={activeFile.content}
         onChange={handleChange}
+        onMount={handleMount}
         beforeMount={handleBeforeMount}
         options={{
           fontSize: 14,

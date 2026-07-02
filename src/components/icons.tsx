@@ -50,3 +50,38 @@ export const ChevronRightIcon = (props: IconProps) => (
 export const GithubIcon = (props: IconProps) => (
   <Codicon name="github" {...props} />
 );
+
+/** 资源管理器（活动栏） */
+export const FilesIcon = (props: IconProps) => (
+  <Codicon name="files" {...props} />
+);
+
+/** 搜索（活动栏 / 输入框） */
+export const SearchIcon = (props: IconProps) => (
+  <Codicon name="search" {...props} />
+);
+
+/** 区分大小写 */
+export const CaseSensitiveIcon = (props: IconProps) => (
+  <Codicon name="case-sensitive" {...props} />
+);
+
+/** 全字匹配 */
+export const WholeWordIcon = (props: IconProps) => (
+  <Codicon name="whole-word" {...props} />
+);
+
+/** 使用正则表达式 */
+export const RegexIcon = (props: IconProps) => (
+  <Codicon name="regex" {...props} />
+);
+
+/** 替换单处 */
+export const ReplaceIcon = (props: IconProps) => (
+  <Codicon name="replace" {...props} />
+);
+
+/** 全部替换 */
+export const ReplaceAllIcon = (props: IconProps) => (
+  <Codicon name="replace-all" {...props} />
+);

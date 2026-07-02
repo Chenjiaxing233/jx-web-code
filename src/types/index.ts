@@ -29,6 +29,15 @@ export interface CreateRequest {
   token: number;
 }
 
+/** 编辑器定位请求：点击搜索结果后跳转到指定行列，token 每次递增以触发消费 */
+export interface RevealLocation {
+  fileId: string;
+  line: number;
+  column: number;
+  endColumn: number;
+  token: number;
+}
+
 export interface EditorState {
   tree: FileTreeNode[];
   files: FileItem[];
@@ -38,6 +47,7 @@ export interface EditorState {
   toast: ToastMessage | null;
   createRequest: CreateRequest | null;
   recentlyClosed: FileItem[];
+  reveal: RevealLocation | null;
 }
 
 export type EditorAction =
@@ -58,4 +68,13 @@ export type EditorAction =
   | { type: 'SHOW_TOAST'; payload: ToastMessage }
   | { type: 'HIDE_TOAST' }
   | { type: 'REQUEST_CREATE'; payload: 'file' | 'directory' }
-  | { type: 'REOPEN_LAST_CLOSED' };
+  | { type: 'REOPEN_LAST_CLOSED' }
+  | {
+      type: 'REVEAL_LOCATION';
+      payload: {
+        fileId: string;
+        line: number;
+        column: number;
+        endColumn: number;
+      };
+    };
