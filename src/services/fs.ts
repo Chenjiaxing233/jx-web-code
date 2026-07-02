@@ -1,4 +1,16 @@
 import type { FileTreeNode } from '../types';
+import {
+  buildRegex,
+  escapeReplacement,
+  type SearchMatch,
+  type SearchOptions,
+  type SearchResult,
+  type SearchRequest,
+  type SearchResponse,
+} from './searchCore';
+
+export type { SearchMatch, SearchOptions, SearchResult } from './searchCore';
+export { MAX_SEARCH_RESULTS } from './searchCore';
 
 let rootHandle: FileSystemDirectoryHandle | null = null;
 const singleFileHandles = new Map<string, FileSystemFileHandle>();
@@ -219,147 +231,94 @@ export async function checkFileModified(
   }
 }
 
-/** 单条全局搜索命中：定位到某文件的某一行 */
-export interface SearchMatch {
-  path: string;
-  line: number; // 1-based 行号
-  column: number; // 1-based 匹配起始列
-  matchLength: number; // 命中文本长度
-  lineText: string; // 命中所在行原文（用于列表展示与高亮）
-}
+/** 复用的搜索 Worker 实例，避免反复创建/销毁 isolate */
+let searchWorker: Worker | null = null;
+let searchSeq = 0;
 
-/** 全局搜索选项 */
-export interface SearchOptions {
-  caseSensitive?: boolean;
-  wholeWord?: boolean;
-  useRegex?: boolean;
-}
-
-/** 仅搜索常见文本文件，跳过二进制/媒体等 */
-const TEXT_FILE_RE =
-  /\.(ts|tsx|js|jsx|mjs|cjs|vue|svelte|css|scss|less|html|htm|json|jsonc|md|markdown|ya?ml|xml|txt|py|go|java|rs|c|h|cpp|cc|cxx|hpp|cs|rb|php|sh|bash|sql|toml|ini|env|conf|log)$/i;
-
-const MAX_SEARCH_FILE_SIZE = 2 * 1024 * 1024; // 跳过 >2MB 的文件
-
-/** 转义正则元字符 */
-const escapeRegExp = (input: string): string =>
-  input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-/** 转义用于 String.prototype.replace 替换串中的 $，避免被误当作捕获组引用 */
-const escapeReplacement = (input: string): string =>
-  input.replace(/\$/g, '$$$$');
-
-/** 根据查询与选项构造全局正则；非法正则返回 null */
-function buildRegex(query: string, options: SearchOptions): RegExp | null {
-  let source = options.useRegex ? query : escapeRegExp(query);
-  if (options.wholeWord) source = `\\b(?:${source})\\b`;
-  try {
-    return new RegExp(source, options.caseSensitive ? 'g' : 'gi');
-  } catch {
-    return null;
+/** 惰性创建（并复用）搜索 Worker */
+function getSearchWorker(): Worker {
+  if (!searchWorker) {
+    searchWorker = new Worker(new URL('./search.worker.ts', import.meta.url), {
+      type: 'module',
+    });
   }
-}
-
-/** 搜索结果上限，超出后停止，保护内存与渲染性能 */
-export const MAX_SEARCH_RESULTS = 5000;
-
-/** 让步主线程：把控制权交回事件循环，避免长任务阻塞渲染与交互 */
-const yieldToMain = (): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, 0));
-
-/** 全局搜索返回：命中列表 + 是否因上限被截断 */
-export interface SearchResult {
-  matches: SearchMatch[];
-  truncated: boolean;
+  return searchWorker;
 }
 
 /**
- * 在已打开的根目录下全局搜索文本，返回每个命中一条结果。
- * 采用增量回调 + 周期性让步主线程，避免大项目搜索阻塞渲染。
+ * 在已打开的根目录下全局搜索文本。
+ * 实际遍历与匹配在 Worker 线程执行，主线程仅收发消息，全程不阻塞渲染。
+ * 只把根目录句柄传给 Worker（结构化克隆，轻量），不复制文件内容。
  * @param query 关键字或正则源
  * @param options 匹配选项（大小写 / 全字 / 正则）
- * @param signal 可选中断信号，用于取消过期搜索
+ * @param signal 可选中断信号；中断时通知 Worker 停止当前请求
  * @param onBatch 增量结果回调，便于 UI 边搜边渲染
  */
-export async function searchInWorkspace(
+export function searchInWorkspace(
   query: string,
   options: SearchOptions = {},
   signal?: AbortSignal,
   onBatch?: (matches: SearchMatch[]) => void
 ): Promise<SearchResult> {
-  if (!rootHandle || !query) return { matches: [], truncated: false };
+  if (!rootHandle || !query) {
+    return Promise.resolve({ matches: [], truncated: false });
+  }
+  if (signal?.aborted) {
+    return Promise.resolve({ matches: [], truncated: false });
+  }
 
-  const pattern = buildRegex(query, options);
-  if (!pattern) return { matches: [], truncated: false };
+  const root = rootHandle;
+  const worker = getSearchWorker();
+  const id = ++searchSeq;
 
-  const results: SearchMatch[] = [];
-  let pending: SearchMatch[] = [];
-  let truncated = false;
-  let lastYield = performance.now();
+  return new Promise((resolve) => {
+    const matches: SearchMatch[] = [];
+    let truncated = false;
+    let settled = false;
 
-  const flush = () => {
-    if (pending.length && onBatch) {
-      onBatch(pending);
-      pending = [];
-    }
-  };
+    const cleanup = () => {
+      worker.removeEventListener('message', onMessage);
+      signal?.removeEventListener('abort', onAbort);
+    };
 
-  const walk = async (
-    dir: FileSystemDirectoryHandle,
-    prefix: string
-  ): Promise<void> => {
-    for await (const [name, handle] of dir.entries()) {
-      if (signal?.aborted || truncated) return;
-      if (name.startsWith('.') || name === 'node_modules') continue;
-      const entryPath = prefix ? `${prefix}/${name}` : name;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve({ matches, truncated });
+    };
 
-      if (handle.kind === 'directory') {
-        await walk(handle, entryPath);
-        continue;
+    const onMessage = (event: MessageEvent<SearchResponse>) => {
+      const data = event.data;
+      if (data.id !== id) return; // 忽略其它请求的消息
+      if (data.type === 'batch') {
+        matches.push(...data.batch);
+        onBatch?.(data.batch);
+      } else if (data.type === 'done') {
+        truncated = data.truncated;
+        finish();
+      } else if (data.type === 'error') {
+        console.error('Search worker error:', data.message);
+        finish();
       }
+    };
 
-      if (!TEXT_FILE_RE.test(name)) continue;
-      const file = await handle.getFile();
-      if (file.size > MAX_SEARCH_FILE_SIZE) continue;
+    const onAbort = () => {
+      worker.postMessage({ type: 'cancel', id } satisfies SearchRequest);
+      finish();
+    };
 
-      const lines = (await file.text()).split('\n');
-      for (let i = 0; i < lines.length; i++) {
-        const lineText = lines[i].replace(/\r$/, '');
-        pattern.lastIndex = 0;
-        let m: RegExpExecArray | null;
-        while ((m = pattern.exec(lineText)) !== null) {
-          const item: SearchMatch = {
-            path: entryPath,
-            line: i + 1,
-            column: m.index + 1,
-            matchLength: m[0].length || 1,
-            lineText,
-          };
-          results.push(item);
-          pending.push(item);
-          // 防止零宽匹配导致死循环
-          if (m.index === pattern.lastIndex) pattern.lastIndex++;
-          if (results.length >= MAX_SEARCH_RESULTS) {
-            truncated = true;
-            break;
-          }
-        }
-        if (truncated) break;
-      }
+    worker.addEventListener('message', onMessage);
+    signal?.addEventListener('abort', onAbort);
 
-      // 周期性让步主线程并推送增量结果，避免长任务
-      if (performance.now() - lastYield > 12) {
-        flush();
-        await yieldToMain();
-        lastYield = performance.now();
-        if (signal?.aborted) return;
-      }
-    }
-  };
-
-  await walk(rootHandle, '');
-  flush();
-  return { matches: results, truncated };
+    worker.postMessage({
+      type: 'search',
+      id,
+      root,
+      query,
+      options,
+    } satisfies SearchRequest);
+  });
 }
 
 /** 替换结果：替换次数 + 新内容 + 新修改时间 */
