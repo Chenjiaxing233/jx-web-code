@@ -1,3 +1,5 @@
+
+
 # React Monaco Code Editor
 
 > 基于 React + Monaco Editor 的轻量级 Web 代码编辑器
@@ -34,7 +36,7 @@
 |------|------|
 | 框架 | React 18 |
 | 编辑器 | Monaco Editor (VS Code 同款内核) |
-| 构建工具 | Vite 6 |
+| 构建工具 | Vite 8 |
 | 语言 | TypeScript 5.6 |
 | 状态管理 | React Context + useReducer |
 | 文件系统 | File System Access API (纯前端) |
